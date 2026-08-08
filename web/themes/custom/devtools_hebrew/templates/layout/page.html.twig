@@ -1,0 +1,23 @@
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="profile-avatar-link" href="{{ logged_in ? path('user.edit') : path('user.login') }}" aria-label="{{ logged_in ? 'עריכת פרופיל המשתמש' : 'כניסה לחשבון' }}">
+      <span class="brand-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" role="img"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm-8 9a8 8 0 0 1 16 0H4Z"/></svg>
+      </span>
+    </a>
+    <a class="brand" href="{{ path('<front>') }}" aria-label="מילון DevTools - דף הבית">מילון DevTools</a>
+    <div class="header-actions">
+      {% if page.primary_menu %}<nav aria-label="תפריט ראשי">{{ page.primary_menu }}</nav>{% endif %}
+      {% if logged_in %}
+        <a class="account-link" href="{{ path('user.logout') }}">יציאה</a>
+      {% else %}
+        <a class="account-link" href="{{ path('user.login') }}">כניסה</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+{% if page.highlighted %}<div class="wrap messages">{{ page.highlighted }}</div>{% endif %}
+<main id="main-content" class="wrap content" tabindex="-1">
+  {{ page.content }}
+</main>
+<footer class="site-footer"><div class="wrap">פרויקט מסכם בקורס כלי פיתוח · Drupal + MySQL + Docker</div></footer>

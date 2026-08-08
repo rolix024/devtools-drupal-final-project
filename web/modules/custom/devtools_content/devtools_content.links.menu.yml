@@ -1,0 +1,5 @@
+devtools_content.add_user:
+  title: 'הוספת משתמש'
+  route_name: user.admin_create
+  parent: navigation.create
+  weight: -10

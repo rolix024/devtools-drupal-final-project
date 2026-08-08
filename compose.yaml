@@ -1,0 +1,60 @@
+services:
+  database:
+    image: mysql:latest
+    container_name: devtools-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-drupal}
+      MYSQL_USER: ${MYSQL_USER:-drupal}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-my-secret-pw}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-my-secret-pw}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD:-my-secret-pw} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [drupal_network]
+
+  drupal:
+    build:
+      context: .
+      dockerfile: docker/drupal/Dockerfile
+    image: devtools-drupal:latest
+    container_name: devtools-drupal
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-drupal}
+      MYSQL_USER: ${MYSQL_USER:-drupal}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-my-secret-pw}
+      DRUPAL_ADMIN_USER: ${DRUPAL_ADMIN_USER:-demoadmin}
+      DRUPAL_ADMIN_PASSWORD: ${DRUPAL_ADMIN_PASSWORD:-secretpass}
+      DRUPAL_SITE_NAME: ${DRUPAL_SITE_NAME:-האתר של ירין וליה}
+      DRUPAL_ADMIN_EMAIL: ${DRUPAL_ADMIN_EMAIL:-admin@example.com}
+      TEAM_USER_1: ${TEAM_USER_1:-Yarin}
+      TEAM_PASSWORD_1: ${TEAM_PASSWORD_1:-Yarin1}
+      TEAM_USER_2: ${TEAM_USER_2:-Liya}
+      TEAM_PASSWORD_2: ${TEAM_PASSWORD_2:-Liya1}
+    ports:
+      - "8080:80"
+    volumes:
+      - drupal_sites:/opt/drupal/web/sites
+      - drupal_modules:/opt/drupal/web/modules
+      - drupal_themes:/opt/drupal/web/themes
+    networks: [drupal_network]
+
+networks:
+  drupal_network:
+    name: devtools-drupal-network
+
+volumes:
+  mysql_data:
+  drupal_sites:
+  drupal_modules:
+  drupal_themes:

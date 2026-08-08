@@ -1,0 +1,203 @@
+<?php
+
+/**
+ * @file
+ * Installs the Hebrew sample glossary.
+ */
+
+use Drupal\node\Entity\Node;
+use Drupal\node\Entity\NodeType;
+use Drupal\block\Entity\Block;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Entity\Entity\EntityViewDisplay;
+
+/**
+ * Implements hook_install().
+ */
+function devtools_content_install(): void {
+  NodeType::create([
+    'type' => 'glossary_term',
+    'name' => 'מושג במילון',
+    'description' => 'מושג והסבר בעברית מתוך חומרי הקורס.',
+  ])->save();
+
+  FieldStorageConfig::create([
+    'field_name' => 'body',
+    'entity_type' => 'node',
+    'type' => 'text_with_summary',
+  ])->save();
+  FieldConfig::create([
+    'field_name' => 'body',
+    'entity_type' => 'node',
+    'bundle' => 'glossary_term',
+    'label' => 'הסבר',
+    'required' => TRUE,
+  ])->save();
+  EntityFormDisplay::create([
+    'targetEntityType' => 'node',
+    'bundle' => 'glossary_term',
+    'mode' => 'default',
+    'status' => TRUE,
+  ])->setComponent('title', ['type' => 'string_textfield'])
+    ->setComponent('body', ['type' => 'text_textarea_with_summary'])
+    ->save();
+  foreach (['default', 'teaser'] as $mode) {
+    EntityViewDisplay::create([
+      'targetEntityType' => 'node',
+      'bundle' => 'glossary_term',
+      'mode' => $mode,
+      'status' => TRUE,
+    ])->setComponent('body', [
+      'type' => $mode === 'teaser' ? 'text_summary_or_trimmed' : 'text_default',
+      'label' => 'hidden',
+    ])->save();
+  }
+
+  $blocks = [
+    'devtools_title' => ['plugin' => 'page_title_block', 'region' => 'content', 'weight' => -20],
+    'devtools_messages' => ['plugin' => 'system_messages_block', 'region' => 'highlighted', 'weight' => 0],
+    'devtools_tasks' => ['plugin' => 'local_tasks_block', 'region' => 'content', 'weight' => -10],
+  ];
+  foreach ($blocks as $id => $definition) {
+    Block::create([
+      'id' => $id,
+      'theme' => 'devtools_hebrew',
+      'plugin' => $definition['plugin'],
+      'region' => $definition['region'],
+      'weight' => $definition['weight'],
+      'status' => TRUE,
+      'settings' => ['label_display' => FALSE],
+    ])->save();
+  }
+
+  // The theme installer creates a Home menu automatically. This project uses
+  // the clickable site brand instead, so remove all main-menu blocks.
+  $block_storage = \Drupal::entityTypeManager()->getStorage('block');
+  $menu_block_ids = $block_storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('theme', 'devtools_hebrew')
+    ->condition('plugin', 'system_menu_block:main')
+    ->execute();
+  if ($menu_block_ids) {
+    $block_storage->delete($block_storage->loadMultiple($menu_block_ids));
+  }
+
+  // Keep the custom local-tasks block in the content region and remove the
+  // duplicate block that Drupal creates automatically for a new theme.
+  $task_block_ids = $block_storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('theme', 'devtools_hebrew')
+    ->condition('plugin', 'local_tasks_block')
+    ->condition('id', 'devtools_tasks', '<>')
+    ->execute();
+  if ($task_block_ids) {
+    $block_storage->delete($block_storage->loadMultiple($task_block_ids));
+  }
+
+  devtools_content_set_frontpage_grid_size();
+  devtools_content_create_glossary();
+}
+
+/**
+ * Configures a complete 3-by-3 glossary page.
+ */
+function devtools_content_set_frontpage_grid_size(): void {
+  $config = \Drupal::configFactory()->getEditable('views.view.frontpage');
+  if (!$config->isNew()) {
+    $config->set('display.default.display_options.pager.options.items_per_page', 9)->save();
+  }
+}
+
+/**
+ * Returns the official Moodle course glossary.
+ */
+function devtools_content_glossary_terms(): array {
+  return [
+    'API' => 'Application Programming Interface - ממשק תכנות יישומים. מערכת של כללים והגדרות המאפשרת לשתי תוכנות לתקשר ולהחליף מידע ביניהן, מבלי שכל צד צריך להכיר את פרטי המימוש הפנימי של הצד השני.',
+    'Assert' => 'פקודה או מתודה בבדיקות יחידה המשמשת לאימות התוצאה של הבדיקה. היא משווה בין התוצאה בפועל (Actual) לבין התוצאה הצפויה (Expected). אם יש התאמה הבדיקה עוברת (Pass), ואם יש אי-התאמה היא נכשלת (Fail) ומציגה שגיאה.',
+    'Bash' => 'GNU Bourne-Again SHell - מפענח (interpreter) שמריץ פקודות וגם שמה של שפת פקודות ותיקה ויעילה בלינוקס.',
+    'Branch' => 'סניף ב-Git הוא קו פיתוח נפרד המאפשר לעבוד על פיצ׳ר או באג באופן עצמאי, מבלי לפגוע בקוד הראשי (main). לאחר סיום העבודה ניתן למזג את הסניף חזרה לקוד הראשי באמצעות merge.',
+    'cat' => 'Concatenate - פקודה המציגה בטרמינל את הטקסט שנמצא בתוך קובץ. משתמשים בה גם לשרשור ולהעתקת תוכן מקובץ אחד לאחר או אל הפלט הסטנדרטי.',
+    'cd' => 'קיצור של Change Directory - פקודה לשינוי תיקיית העבודה בטרמינל.',
+    'chmod' => 'Change Mode - פקודה לשינוי הרשאות של קובץ או תיקייה בלינוקס. קובעת מי יכול לקרוא (r), לכתוב (w) או להריץ (x) עבור המשתמש, הקבוצה ואחרים.',
+    'git clone' => 'פקודה ב-Git המעתיקה Repository שלם משרת מרוחק, כגון GitHub, למחשב המקומי. ההעתק כולל את קבצי הפרויקט ואת היסטוריית ה-commits.',
+    'git commit' => 'פקודה ב-Git השומרת צילום מצב של השינויים בקוד בנקודת זמן מסוימת. כל Commit מכיל הודעה תיאורית ומזהה ייחודי (hash), ומאפשר לחזור לגרסה זו.',
+    'Compiler' => 'מהדר - תוכנה הממירה קוד מקור שנכתב בשפה עילית, כגון Java או C, לשפת מכונה שהמחשב יכול להריץ. המהדר גם בודק ומדווח על שגיאות תחביר לפני ההרצה.',
+    'Docker Container' => 'סביבת הרצה עצמאית, קלה ומבודדת, הנוצרת מתוך Docker Image. הקונטיינר אורז את האפליקציה עם התלויות שלה ומאפשר לה לרוץ בצורה אחידה, תוך שיתוף משאבי מערכת ההפעלה המארחת.',
+    'cp' => 'Copy - פקודה שמעתיקה קבצים או תיקיות ממקום אחד למקום אחר.',
+    'DevOps' => 'Development Operations - תחום ותפקיד האחראי על החיבור בין פיתוח לתפעול, לרבות התקנות, רישיונות, עדכונים, אוטומציה ופריסת מערכות.',
+    'Docker' => 'תוכנה המאפשרת למפתחים לארוז אפליקציות בתוך Containers ולהעביר אותן באופן אחיד בין סביבות פיתוח והרצה.',
+    'Dockerfile' => 'קובץ טקסט המכיל סדרת הוראות לבנייה אוטומטית של Docker Image. הוא מגדיר בסיס, קבצים להעתקה, תלויות להתקנה ופקודה להרצה כאשר הקונטיינר עולה.',
+    'echo' => 'פקודה בלינוקס המדפיסה טקסט או ערך של משתנה אל הטרמינל. שימושית בסקריפטים להצגת הודעות ולבדיקת ערכים.',
+    'git fetch' => 'פקודה המושכת עדכונים מהשרת המרוחק למחשב המקומי, בלי למזג אותם אוטומטית.',
+    'GitHub' => 'שירות מרוחק לאחסון מאגרי Git. הוא מאפשר גיבוי קוד בענן, מעקב אחרי שינויים, עבודה בצוות, שיתוף Repositories ופרסום פרויקטים.',
+    'GitHub Copilot' => 'כלי מבוסס בינה מלאכותית להשלמת קוד וכתיבת תוכנה בתוך סביבת הפיתוח. הוא מנתח את הקשר הקוד וההערות ומציע שורות, פונקציות, בדיקות ותיעוד.',
+    'Gradle' => 'מערכת אוטומציה לבניית תוכנה, המשמשת בעיקר בפרויקטים של Java, Kotlin ו-Android. היא מבצעת הידור, בדיקות ויצירת קובצי הפצה.',
+    'grep' => 'Global Regular Expression Print - פקודה בלינוקס לחיפוש טקסט או תבנית בתוך קבצים או בפלט של פקודות אחרות. היא מציגה שורות שמכילות את הביטוי המבוקש.',
+    'IDE' => 'Integrated Development Environment - סביבת פיתוח משולבת המרכזת עורך קוד, השלמות אוטומטיות, מהדר, כלי ניפוי שגיאות ואינטגרציה עם Git. דוגמאות: IntelliJ, VS Code ו-Eclipse.',
+    'Docker Image' => 'תבנית עצמאית ובלתי משתנה (read-only) המכילה את הקוד, סביבת הריצה, ספריות המערכת והגדרות ברירת המחדל. ה-Image משמש בסיס ליצירת Containers.',
+    'JUnit' => 'תשתית בדיקות נפוצה עבור Java, המיועדת לכתיבה ולהרצה של בדיקות יחידה חוזרות כדי להבטיח את תקינות הקוד.',
+    'Linux' => 'מערכת הפעלה חינמית ובקוד פתוח, הנמצאת בשימוש נרחב בשרתים, מחשבים, מערכות משובצות וסביבות פיתוח.',
+    'ls' => 'List - פקודה המציגה את הקבצים בתיקייה הנוכחית. הפרמטר ‎-l מציג מידע מפורט, כגון סוג הקובץ והרשאות קריאה, כתיבה והרצה.',
+    'man' => 'Manual - פקודה המציגה מדריך שימוש עבור פקודות בלינוקס.',
+    'Maven' => 'כלי לניהול פרויקטים ולבניית תוכנה בעולם Java. הוא מנהל תלויות, הידור, בדיקות ואריזה על בסיס קובץ pom.xml.',
+    'merge' => 'פעולה ב-Git הממזגת שינויים מסניף אחד לתוך סניף אחר. אם אותו קוד השתנה בשני הסניפים, עשוי להיווצר Conflict שיש לפתור ידנית.',
+    'mkdir' => 'Make Directory - פקודה היוצרת תיקייה חדשה במקום הנוכחי בטרמינל.',
+    'Mocking' => 'יצירת אובייקטים מדומים בזמן בדיקות יחידה, כדי לבדוק רכיב מסוים במנותק מתלויות חיצוניות כגון מסד נתונים או API.',
+    'mv' => 'Move - פקודה להעברת קבצים ותיקיות או לשינוי שמם בלינוקס.',
+    'nano' => 'GNU Nano - עורך טקסט הפועל בטרמינל ומאפשר לערוך קבצים ולכתוב סקריפטים.',
+    'git push' => 'פקודה ב-Git המעלה את ה-commits המקומיים אל Repository מרוחק, כגון GitHub, כדי לשמור ולשתף את השינויים.',
+    'pwd' => 'Print Working Directory - פקודה המציגה את הנתיב המלא של תיקיית העבודה הנוכחית.',
+    'Repository' => 'תיקיית פרויקט ש-Git מנהל ועוקב בה אחר שינויים, כך שניתן לעקוב אחר העבודה ולחזור לגרסאות קודמות.',
+    'rm' => 'Remove - פקודה למחיקת קבצים או תיקיות בלינוקס. ‎rm מוחקת קובץ ו-‎rm -r מוחקת תיקייה ואת תכולתה.',
+    'SDKMAN!' => 'כלי שורת פקודה לניהול גרסאות של ערכות פיתוח בסביבות Unix. מאפשר להתקין, להחליף ולהסיר Java JDK, Gradle, Maven, Groovy וכלים נוספים.',
+    'Shebang' => 'רצף התווים ‎#! המופיע בתחילת השורה הראשונה של סקריפט ב-Unix ומורה למערכת באיזה Interpreter להשתמש להרצת הקובץ.',
+    'sudo' => 'SuperUser Do - פקודה המאפשרת להריץ פקודה אחרת בהרשאות משתמש-על (root), למשל לצורך התקנת תוכנות או שינוי קובצי מערכת.',
+    'Token' => 'מפתח דיגיטלי או אמצעי זיהוי שמאפשר גישה מאובטחת למערכות, בלי להעביר את הסיסמה מחדש בכל בקשה.',
+    'touch' => 'פקודה היוצרת קובץ ריק חדש אם אינו קיים. אם הקובץ קיים, היא מעדכנת את זמני הגישה והשינוי שלו.',
+    'Unit Testing' => 'תהליך שבו רכיבים בודדים ומבודדים של תוכנה, כגון פונקציות, מתודות או מחלקות, נבדקים כדי לוודא שהם פועלים כצפוי.',
+  ];
+}
+
+/**
+ * Creates all glossary nodes.
+ */
+function devtools_content_create_glossary(): void {
+  foreach (devtools_content_glossary_terms() as $title => $body) {
+    Node::create([
+      'type' => 'glossary_term',
+      'title' => $title,
+      'langcode' => 'he',
+      'status' => 1,
+      'promote' => 1,
+      'uid' => 1,
+      'body' => ['value' => $body, 'format' => 'basic_html'],
+    ])->save();
+  }
+}
+
+/**
+ * Replaces the sample data with the official Moodle glossary.
+ */
+function devtools_content_update_10001(): string {
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'glossary_term')
+    ->execute();
+  if ($ids) {
+    $storage->delete($storage->loadMultiple($ids));
+  }
+  devtools_content_create_glossary();
+  return 'The official Moodle glossary has been imported.';
+}
+
+/**
+ * Changes the glossary pager to nine widgets per page.
+ */
+function devtools_content_update_10002(): string {
+  devtools_content_set_frontpage_grid_size();
+  return 'The homepage now displays a 3-by-3 widget grid.';
+}

@@ -1,0 +1,8 @@
+<article{{ attributes.addClass('term-card') }}>
+  {{ title_prefix }}
+  {% if label and not page %}<h2{{ title_attributes }}><a href="{{ url }}">{{ label }}</a></h2>{% endif %}
+  {% if label and page %}<h1{{ title_attributes }}>{{ label }}</h1>{% endif %}
+  {{ title_suffix }}
+  <div{{ content_attributes.addClass('term-body') }}>{{ content|without('links') }}</div>
+  {% if content.links %}<div class="term-links">{{ content.links }}</div>{% endif %}
+</article>

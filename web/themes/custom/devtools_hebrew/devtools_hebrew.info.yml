@@ -1,0 +1,14 @@
+name: 'DevTools Hebrew'
+type: theme
+description: 'ערכת נושא עברית ו-RTL למילון מושגי כלי פיתוח.'
+core_version_requirement: ^10 || ^11
+base theme: false
+libraries:
+  - devtools_hebrew/global
+regions:
+  header: כותרת
+  primary_menu: תפריט ראשי
+  highlighted: הודעות
+  content: תוכן
+  footer: כותרת תחתונה
+

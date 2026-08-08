@@ -1,0 +1,10 @@
+name: 'DevTools Hebrew Content'
+type: module
+description: 'יוצר תוכן התחלתי בעברית עבור מילון מושגי הקורס.'
+package: Custom
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - drupal:block
+  - drupal:field
+  - drupal:text
